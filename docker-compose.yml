@@ -1,0 +1,66 @@
+# https://qiita.com/shikuno_dev/items/f236c8280bb745dd6fb4
+# https://docs.docker.jp/compose/environment-variables.html
+version: '3'
+
+services:
+  # Nginxの定義
+  nginx:
+    # Nginxコンテナに使用するイメージを指定
+    image: nginx:${NGINX_IMAGE_VERSION}
+    # ホストマシンのポートをコンテナのポートにマッピング
+    ports:
+      # <ホストマシンのポート>:<コンテナのポート>
+      - ${NGINX_HOST_HTTP_PORT}:80
+      # - ${NGINX_HOST_HTTPS_PORT}:443
+    volumes:
+      # ./コンテナ内の/var/www/htmlにマウント
+      - ./${DOCUMENT_ROOT_DIR}:/var/www/html
+      # ./docker/nginxフォルダをコンテナ内の/etc/nginx/conf.dにマウント
+      - ./docker/nginx:/etc/nginx/conf.d
+    # 依存関係を設定
+    depends_on:
+      - app
+  # PHP-FPMの定義
+  app:
+    build:
+      # Dockerfileを格納するフォルダのパス
+      context: ./docker/php
+      # 環境変数を定義
+      args:
+          - PHP_VERSION=${PHP_VERSION}
+      # Dockerfileのファイル名
+      dockerfile: Dockerfile
+    # コンテナ内で使用される環境変数を定義
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      # コンテナ内の/var/www/htmlにマウント
+     - ./${DOCUMENT_ROOT_DIR}:/var/www/html
+    # 依存関係を設定
+    depends_on:
+      - mysql
+  # MySQLの定義
+  mysql:
+    # MySQL コンテナに使用するイメージを指定
+    image: mysql:${MYSQL_IMAGE_VERSION}
+    # コンテナ内で使用される環境変数を定義
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      # 名前付きボリュームを MySQL コンテナに紐づける
+      - mysqldata:/var/lib/mysql
+      - ./docker/mysql/my.cnf:/etc/mysql/conf.d/my.cnf
+      # - ./docker/mysql/sql:/docker-entrypoint-initdb.d
+    ports:
+      - ${MYSQL_PORT}:3306
+    # expose:
+    #   - ${MYSQL_PORT}
+volumes:
+  # 名前付きボリュームの作成
+  mysqldata:
