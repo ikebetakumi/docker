@@ -1,6 +1,5 @@
 # https://qiita.com/shikuno_dev/items/f236c8280bb745dd6fb4
 # https://docs.docker.jp/compose/environment-variables.html
-version: '3'
 
 services:
   # Nginxの定義
@@ -20,6 +19,7 @@ services:
     # 依存関係を設定
     depends_on:
       - app
+
   # PHP-FPMの定義
   app:
     build:
@@ -39,9 +39,17 @@ services:
     volumes:
       # コンテナ内の/var/www/htmlにマウント
      - ./${DOCUMENT_ROOT_DIR}:/var/www/html
-    # 依存関係を設定
+    # Xdebug がホストの IDE (host.docker.internal:9003) に接続できるようにする。
+    # Docker Desktop (Mac/Windows) では無くても動くが、Linux の Docker Engine では
+    # これが無いと host.docker.internal が解決できない
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # 依存関係を設定。MySQL が接続を受け付けられる状態になるまで待つ
+    # （起動しただけでは接続不可のことがあるため、healthcheck を待つ）
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
+
   # MySQLの定義
   mysql:
     # MySQL コンテナに使用するイメージを指定
@@ -61,6 +69,31 @@ services:
       - ${MYSQL_PORT}:3306
     # expose:
     #   - ${MYSQL_PORT}
+    # MySQL が実際に接続を受け付けられるようになったかを確認する
+    # 初回起動時（ボリューム未初期化）は DB ファイルの初期化処理が走るため、
+    # 環境によっては起動完了まで数分かかることがある。start_period を長めに
+    # 取り、その間の失敗はリトライ回数にカウントさせないようにする
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 120s
+
+  # phpMyAdmin の定義（ブラウザから DB の中身を確認するため）
+  phpmyadmin:
+    image: phpmyadmin:latest
+    environment:
+      PMA_HOST: mysql
+      PMA_USER: root
+      PMA_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      UPLOAD_LIMIT: 128M
+    ports:
+      - ${PHPMYADMIN_PORT}:80
+    depends_on:
+      mysql:
+        condition: service_healthy
+
 volumes:
   # 名前付きボリュームの作成
   mysqldata:
