@@ -16,9 +16,18 @@ services:
       - ./${DOCUMENT_ROOT_DIR}:/var/www/html
       # ./docker/nginxフォルダをコンテナ内の/etc/nginx/conf.dにマウント
       - ./docker/nginx:/etc/nginx/conf.d
-    # 依存関係を設定
+    # 依存関係を設定。app が実際にリクエストを受け付けられる状態になるまで待つ
     depends_on:
-      - app
+      app:
+        condition: service_healthy
+    # nginx コンテナ自体が生きていてHTTPリクエストに応答できるかを確認する。
+    # バックエンド(PHP)側のエラー（404/500等）は失敗扱いにしない
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -o /dev/null http://localhost/ || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   # PHP-FPMの定義
   app:
@@ -39,6 +48,12 @@ services:
     volumes:
       # コンテナ内の/var/www/htmlにマウント
      - ./${DOCUMENT_ROOT_DIR}:/var/www/html
+      # composer install/update のダウンロードキャッシュを永続化し、
+      # コンテナを作り直すたびに毎回フルダウンロードし直すのを防ぐ
+     - composer_cache:/root/.cache/composer
+      # xdebug.ini をbind mountし、編集後 `docker compose restart app`
+      # だけで反映されるようにする（イメージの再ビルドは不要）
+     - ./docker/php/xdebug.ini:/usr/local/etc/php/conf.d/xdebug.ini
     # Xdebug がホストの IDE (host.docker.internal:9003) に接続できるようにする。
     # Docker Desktop (Mac/Windows) では無くても動くが、Linux の Docker Engine では
     # これが無いと host.docker.internal が解決できない
@@ -49,6 +64,14 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+    # PHP-FPM (9000番ポート) がリクエストを受け付けられる状態かを確認する。
+    # /dev/tcp は bash 組み込みのため、/bin/sh(dash) ではなく bash を明示的に呼ぶ
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/9000"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
 
   # MySQLの定義
   mysql:
@@ -82,7 +105,7 @@ services:
 
   # phpMyAdmin の定義（ブラウザから DB の中身を確認するため）
   phpmyadmin:
-    image: phpmyadmin:latest
+    image: phpmyadmin:${PHPMYADMIN_IMAGE_VERSION}
     environment:
       PMA_HOST: mysql
       PMA_USER: root
@@ -97,3 +120,4 @@ services:
 volumes:
   # 名前付きボリュームの作成
   mysqldata:
+  composer_cache:
