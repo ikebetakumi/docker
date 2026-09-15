@@ -5,6 +5,8 @@ FROM php:${PHP_VERSION}-fpm
 # 独自のphp.iniファイル(PHPの設定ファイル)を
 # コンテナ内の/usr/local/etc/php/ディレクトリにコピー
 COPY php.ini /usr/local/etc/php/
+# Xdebug の設定（デフォルト off。使い方は xdebug.ini 内のコメント参照）
+COPY xdebug.ini /usr/local/etc/php/conf.d/xdebug.ini
 # composerの最新バージョンをインストール
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
@@ -15,7 +17,9 @@ RUN apt-get update && apt-get install -y \
 	zip \
 	unzip \
 	vim \
-	&& docker-php-ext-install pdo_mysql
+	&& docker-php-ext-install pdo_mysql \
+	&& pecl install xdebug \
+	&& docker-php-ext-enable xdebug
 
 # 作業ディレクトリの設定
 WORKDIR /var/www/html
