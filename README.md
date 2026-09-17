@@ -2,23 +2,28 @@
 
 ローカル開発環境をすぐ立ち上げるための Docker テンプレート。Nginx + PHP-FPM + MySQL + phpMyAdmin。
 
-## ブランチについて
+## 対応スタック
 
-stack ごとにブランチを分けている。使う stack のブランチを checkout してから使うこと。
+ブランチ分けはしていない（`main` 一本）。使うスタックに応じて `.env` のサンプルファイルを選んでコピーする。
 
-| ブランチ | 内容 |
-| --- | --- |
-| `main` | 共通のベース（素の PHP） |
-| `php` | `main` と同内容 |
-| `laravel` | Laravel 向けに nginx / Dockerfile を調整 |
-| `wordpress` | WordPress 向けに mysqli / gd を追加 |
+| コピーするファイル | FRAMEWORK | 内容 |
+| --- | --- | --- |
+| `.env.example` | `php` | 素の PHP |
+| `.env.laravel.example` | `laravel` | Laravel 向けに nginx のドキュメントルート / Dockerfile を調整（gd, zip） |
+| `.env.wordpress.example` | `wordpress` | WordPress 向けに mysqli / gd を追加 |
 
-共通のインフラ修正（nginx 設定や compose ファイルなど）は現状 `main` にしか入っていない。他ブランチへの反映は都度手動でマージすること。
+`FRAMEWORK` の値によって `docker/php/Dockerfile.${FRAMEWORK}` と `docker/nginx/${FRAMEWORK}/default.conf` が使われる（`docker-compose.yml` 参照）。**プロジェクト開始時に1回決めたら、あとから切り替える想定はない**（切り替える場合は `.env` を編集後に `--build` で再ビルドが必要）。
+
+共通のインフラ修正（`docker-compose.yml` や `php.ini` など）は全スタックで共有しているファイルなので、直せば自動的に全スタックに反映される。
 
 ## セットアップ
 
 ```bash
-cp .env.example .env
+# 使うスタックに応じて選ぶ
+cp .env.example .env             # 素のPHP
+# cp .env.laravel.example .env   # Laravel
+# cp .env.wordpress.example .env # WordPress
+
 # 必要ならポート番号やDB名などを .env で調整
 docker-compose up -d --build
 ```

@@ -14,8 +14,8 @@ services:
     volumes:
       # ./コンテナ内の/var/www/htmlにマウント
       - ./${DOCUMENT_ROOT_DIR}:/var/www/html
-      # ./docker/nginxフォルダをコンテナ内の/etc/nginx/conf.dにマウント
-      - ./docker/nginx:/etc/nginx/conf.d
+      # ./docker/nginx/{FRAMEWORK}フォルダをコンテナ内の/etc/nginx/conf.dにマウント
+      - ./docker/nginx/${FRAMEWORK:-php}:/etc/nginx/conf.d
     # 依存関係を設定。app が実際にリクエストを受け付けられる状態になるまで待つ
     depends_on:
       app:
@@ -37,8 +37,9 @@ services:
       # 環境変数を定義
       args:
           - PHP_VERSION=${PHP_VERSION}
-      # Dockerfileのファイル名
-      dockerfile: Dockerfile
+      # Dockerfileのファイル名。使用するフレームワークに応じて .env の
+      # FRAMEWORK (php / laravel / wordpress) で切り替える
+      dockerfile: Dockerfile.${FRAMEWORK:-php}
     # コンテナ内で使用される環境変数を定義
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}

@@ -1,0 +1,29 @@
+# docker-composeから渡された変数を使用する準備
+ARG PHP_VERSION
+# イメージを取得
+FROM php:${PHP_VERSION}-fpm
+# 独自のphp.iniファイル(PHPの設定ファイル)を
+# コンテナ内の/usr/local/etc/php/ディレクトリにコピー
+COPY php.ini /usr/local/etc/php/
+# Xdebug の設定（デフォルト off。使い方は xdebug.ini 内のコメント参照）
+COPY xdebug.ini /usr/local/etc/php/conf.d/xdebug.ini
+# composerの最新バージョンをインストール
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# パッケージやPHPの拡張モジュールをインストールするコマンドを実行
+RUN apt-get update && apt-get install -y \
+	git \
+	curl \
+	zip \
+	unzip \
+	vim \
+	libpng-dev libjpeg-dev libfreetype-dev \
+	&& docker-php-ext-configure gd --with-freetype --with-jpeg \
+	&& docker-php-ext-install -j$(nproc) gd \
+	&& docker-php-ext-install pdo_mysql \
+	&& docker-php-ext-install mysqli \
+	&& pecl install xdebug \
+	&& docker-php-ext-enable xdebug
+
+# 作業ディレクトリの設定
+WORKDIR /var/www/html
